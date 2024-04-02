@@ -99,3 +99,62 @@ int main(int argc, char *argv[])
 
     return 0;
 }
+
+/******************************** Procesos por lotes **********************************************/
+/**La funcion ProcesoTres responsable del proesamiendo del lote de comandos*/
+/**
+* Esta funcion nos generó muchos problemas por que al ejecutar el execv(--) el padre al parecer no podía
+* retomar el flujo normal del programa y el programa se quedaba en un ciclo infinito
+* la solucion fue crear una vía de comunicación entre el proceso padre y el proceso hijo.
+* la tubería creada por popen() basicamente es una area de memoria intermedia en donde el padre y el hijo se escrinben mutuamente
+* el padre escribe el comando a ejecutar el hijo lee el comando y lo ejecuta, para luego escribir
+* en la salida el resultado de su proceso, y el padre lee el resultado y lo manda al flujo de salida
+* que corresponda.
+*/
+/**
+*    ./wish comandos.sh
+*/
+void procesoTres(int argc, char *argv[]) {
+    error();
+    FILE *comandos = fopen(argv[1], "r");
+    
+    if (argc != 2) {
+        error(); 
+        exit(1);
+    }
+    if (comandos == NULL) {
+        error(); 
+        exit(1);
+    }
+
+    char linea[MAXIMA_LOGITUD_LINEA];
+
+    // Leer cada línea del archivo de comandos
+    while (fgets(linea, sizeof(linea), comandos) != NULL) {
+        // Eliminar el carácter de nueva línea, si está presente
+        linea[strcspn(linea, "\n")] = '\0';
+
+        // Salir del bucle si se encuentra el comando "exit"
+        if (strcmp(linea, "exit") == 0) {
+           break;
+        }
+
+        FILE *fp = popen(linea, "r"); // Ejecutar el comando y abrir una tubería para leer su salida
+        if (fp == NULL) {
+            error(); 
+            exit(1);
+        }
+
+        char buffer[MAXIMO_BUFFER];
+        // Leer la salida del comando línea por línea y mostrarla en la consola
+        while (fgets(buffer, sizeof(buffer), fp) != NULL) {   //En fp viene la salida del hijo
+               fprintf(stdout, "%s", buffer);
+        }
+
+        pclose(fp); // Cerrar el pipeline después de leer la salida del comando
+    }
+
+    // Cerrar el archivo después de procesar todas las líneas del archivo
+    fclose(comandos);
+    exit(0);
+}
