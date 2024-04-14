@@ -1,4 +1,4 @@
-/*  
+/*
  * Programa: Ejecución de lote de comandos
  * Autores:  [Leidy Castaño Castaño], [Yuly Yesenia Alvear Romo], [Omar Alberto Torres]
  * Profesor: [Dany Alexandro Munera ]
@@ -19,19 +19,19 @@
 #define MAXIMA_LONGITUD_PATH 512
 #define MAXIMA_LONGITUD_COMANDO 512
 #define MAXIMOS_ARGUMENTOS 512
-#define MAXIMA_LOGITUD_LINEA  512
-#define MAXIMO_BUFFER  1024
-#define EXEC_SUCCESS(status) ((status) == 0) 
-#define  MAX_INPUT_LENGTH 1024
+#define MAXIMA_LOGITUD_LINEA 512
+#define MAXIMO_BUFFER 1024
+#define EXEC_SUCCESS(status) ((status) == 0)
+#define MAX_INPUT_LENGTH 1024
 
 /**************************************** Variables globales ***************************************/
-char **rutas; 
+char **rutas;
 int nume_rutas = 0;
 int capacidad_rutas = 256;
 
 /*********************************** Definición prototipos de funciones *****************************/
-FILE* getFile(int argc, char *argv[]);
-char** almacenarArgumentos(char *token, char *line_copy) ;
+FILE *getFile(int argc, char *argv[]);
+char **almacenarArgumentos(char *token, char *line_copy);
 void error();
 void error_Three(char *msg);
 void prompt();
@@ -44,7 +44,7 @@ int procesoTres(int argc, char *argv[]);
 void parsear_comandos(char *comando, char **args, int *segundoplano);
 void ejecutar_comando(char **args, int segundoplano);
 void procesoTwo(char *comando);
-void  proceso(char * comando);
+void proceso(char *comando);
 int contiene_ampersand(const char *cadena);
 void redirigir_salida_entrada_a_archivos(char *comando);
 void agregar_ruta(const char *nueva_ruta);
@@ -53,19 +53,29 @@ void liberar_rutas();
 /***************************************** Función principal ***************************************/
 
 /** La funcion main controla el flujo del program y ciclo del proceso interactivo ******************/
-int main(int argc, char *argv[]) {
+int main(int argc, char *argv[])
+{
     inicializar_rutas();
     nume_rutas = sizeof(rutas) / sizeof(rutas[0]);
     char comando[MAXIMA_LONGITUD_COMANDO];
 
-    if (argc == 2) {
+    if (argc == 2)
+    {
         procesoTres(argc, argv); // Se ejecuta proceso batch si se proporciona un argumento
         return 0;
     }
 
-    while (1) {
+    if (argc > 2)
+    {
+        error();
+        return 1;
+    }
+
+    while (1)
+    {
         prompt();
-        if (fgets(comando, MAXIMA_LONGITUD_COMANDO, stdin) == NULL) {
+        if (fgets(comando, MAXIMA_LONGITUD_COMANDO, stdin) == NULL)
+        {
             // Si fgets retorna NULL, indica que se llegó al final del archivo (EOF)
             break; // Salir del bucle
         }
@@ -73,19 +83,26 @@ int main(int argc, char *argv[]) {
         // Eliminar el carácter de nueva línea del final del comando
         comando[strcspn(comando, "\n")] = '\0';
 
-        if (strcmp(comando, "exit") == 0) {
+        if (strcmp(comando, "exit") == 0)
+        {
             break; // Salir del bucle si se ingresa "exit"
         }
 
-        if (strcmp(comando, "") == 0) {
+        if (strcmp(comando, "") == 0)
+        {
             continue; // Volver a solicitar el comando si se ingresó una línea vacía
         }
 
-        if (contiene_ampersand(comando)) {
+        if (contiene_ampersand(comando))
+        {
             proceso(comando); // Se ejecutan comandos en segundo plano
-        } else if (strchr(comando, '>') || strchr(comando, '<')) {
+        }
+        else if (strchr(comando, '>') || strchr(comando, '<'))
+        {
             redirigir_salida_entrada_a_archivos(comando); // Se maneja el redireccionamiento
-        } else {
+        }
+        else
+        {
             procesoOne(comando); // Se procesan los comandos internos/externos
         }
     }
@@ -94,25 +111,31 @@ int main(int argc, char *argv[]) {
 }
 
 /*********************Liberar memoria dinámica******************************/
-void error_Three(char *msg){
-    write(STDERR_FILENO, msg, strlen(msg)); 
+void error_Three(char *msg)
+{
+    write(STDERR_FILENO, msg, strlen(msg));
 }
-void liberar_rutas() {
-    for (int i = 0; i < nume_rutas; i++) {
+void liberar_rutas()
+{
+    for (int i = 0; i < nume_rutas; i++)
+    {
         free(rutas[i]);
     }
     free(rutas);
 }
 
 /****************Inicializa ruta para busqueda de comandos************/
-void agregar_ruta(const char *nueva_ruta) {
-    if (nume_rutas >= capacidad_rutas) { // Verificar si hay espacio suficiente
+void agregar_ruta(const char *nueva_ruta)
+{
+    if (nume_rutas >= capacidad_rutas)
+    { // Verificar si hay espacio suficiente
         // Duplicar la capacidad del arreglo
         capacidad_rutas *= 2;
-        rutas = realloc(rutas, capacidad_rutas * sizeof(char*));
-        if (rutas == NULL) {
+        rutas = realloc(rutas, capacidad_rutas * sizeof(char *));
+        if (rutas == NULL)
+        {
             error();
-           return;
+            return;
         }
     }
     // Agregar la nueva ruta
@@ -123,8 +146,9 @@ void agregar_ruta(const char *nueva_ruta) {
  *   La funcion inicializar rutas crea dinámicamente un array predeterminando algunas rutas
  *   compatibles con Unix y sistema operativo MAC
  */
-void inicializar_rutas() {
-    rutas = malloc(MAXIMA_LONGITUD_PATH * sizeof(char*));
+void inicializar_rutas()
+{
+    rutas = malloc(MAXIMA_LONGITUD_PATH * sizeof(char *));
     rutas[0] = strdup("/bin/");
     rutas[1] = strdup("/usr/bin/");
     rutas[2] = strdup("/path/to/date/directory/");
@@ -134,7 +158,7 @@ void inicializar_rutas() {
     rutas[6] = strdup("/etc/");
     rutas[7] = strdup("/home/");
     rutas[8] = strdup("/lib/");
- }
+}
 
 /******************************** Procesos por lotes **********************************************/
 /**
@@ -146,33 +170,41 @@ void inicializar_rutas() {
  *    el control a shell para que ejecute todos los comandos del script y ya no tenemos que iterar sobre el script
  *    para ejecutar los comandos. La magia la ordena el sistema operativo al shell.
  */
- 
-int procesoTres(int argc, char *argv[]) {
+
+int procesoTres(int argc, char *argv[])
+{
     FILE *script = fopen(argv[1], "r");
-    
-    if (argc != 2 || script == NULL) {
-        error(); 
+
+    if (argc != 2 || script == NULL)
+    {
+        error();
         return 0; // Retorna 1 en caso de error
     }
 
     // Crear un proceso hijo
     pid_t pid = fork();
-    if (pid < 0) {
+    if (pid < 0)
+    {
         error();
         return 0; // Retorna 1 en caso de error
-    } else if (pid == 0) {
+    }
+    else if (pid == 0)
+    {
         // Proceso hijo
-        char *comando = strdup("/bin/sh"); // Obtener la ruta del shell
+        char *comando = strdup("/bin/sh");       // Obtener la ruta del shell
         char *args[] = {comando, argv[1], NULL}; // Argumentos para ejecutar el script
-        execvp(args[0], args); // Ejecutar el script de shell
-        error(); // Si execvp falla
+        execvp(args[0], args);                   // Ejecutar el script de shell
+        error();                                 // Si execvp falla
         return 1;
-    } else {
+    }
+    else
+    {
         // Proceso padre
         int status;
         waitpid(pid, &status, 0);
-        if (!EXEC_SUCCESS(status)) {
-            error(); // Mostrar mensaje de error si la ejecución falla
+        if (!EXEC_SUCCESS(status))
+        {
+            error();  // Mostrar mensaje de error si la ejecución falla
             return 0; // Retorna 1 en caso de error
         }
     }
@@ -181,71 +213,90 @@ int procesoTres(int argc, char *argv[]) {
 }
 
 /**La función prompt() muestra el símbolo de shell */
-void prompt() {
+void prompt()
+{
     fprintf(stdout, "%s", "wish> ");
 }
 
 /** Toma una línea de entrada(comando) y la divide en tokens que se almacenan en el arreglo de cadenas args */
-void parsear_comando(char *comando, char **args) {
-    char *token;                                       // Puntero token(argumento o comando)
+void parsear_comando(char *comando, char **args)
+{
+    char *token; // Puntero token(argumento o comando)
     int i = 0;
     // Se ejecuta mientras existan tokens y no se haya alcanzado el máximo número de tokens
-    while ((token = strsep(&comando, " \n")) != NULL && i < MAXIMOS_ARGUMENTOS - 1) {
-        if (*token != '\0') {
-            args[i++] = token;                     // Se almacena token
+    while ((token = strsep(&comando, " \n")) != NULL && i < MAXIMOS_ARGUMENTOS - 1)
+    {
+        if (*token != '\0')
+        {
+            args[i++] = token; // Se almacena token
         }
     }
-    args[i] = NULL;       // Marca el final de la lista de argumentos
+    args[i] = NULL; // Marca el final de la lista de argumentos
 }
 
 /**
  * Error genérico para todas las ocurrencias de error
  */
-void error(){
+void error()
+{
     char error_message[30] = "An error has occurred\n";
-    write(STDERR_FILENO, error_message, strlen(error_message)); 
+    write(STDERR_FILENO, error_message, strlen(error_message));
 }
 
 /**
  * Esta función es responsable de ejecutar los comandos externos (comandos que no son internos al shell)
  */
-int ejecutar_comando_externo(char **args) {
-    pid_t pid;                      // Id del proceso
-    int status;                     // Estado del proceso hijo
+int ejecutar_comando_externo(char **args)
+{
+    pid_t pid;                 // Id del proceso
+    int status;                // Estado del proceso hijo
     int comando_ejecutado = 1; // Inicializar en 1 para indicar éxito por defecto
 
     // Verificar si el comando es "exit" con un argumento ( wish > exit argumento)
-    if (strcmp(args[0], "exit") == 0 && args[1] != NULL) {
+    if (strcmp(args[0], "exit") == 0 && args[1] != NULL)
+    {
         error_Three("ls: cannot access '/no/such/file': No such file or directory");
         comando_ejecutado = 0; // Indicar fallo
-    } else {
+    }
+    else
+    {
         // Crear un proceso hijo
-        pid = fork(); 
-        if (pid == 0) {
+        pid = fork();
+        if (pid == 0)
+        {
             // En el proceso hijo, ejecutar el comando
             execvp(args[0], args);
             error_Three("ls: cannot access '/no/such/file': No such file or directory");
             // Si execvp falla, mostrar un mensaje de error específico para ls
-            if (strcmp(args[0], "ls") == 0 && args[1] != NULL) {
+            if (strcmp(args[0], "ls") == 0 && args[1] != NULL)
+            {
                 error_Three("ls: cannot access '/no/such/file': No such file or directory");
-            } else {
-                     error();
+            }
+            else
+            {
+                error();
             }
             exit(0); // Salir con código de retorno 0 en caso de error y o retorno de exec
-        } else if (pid < 0) {
+        }
+        else if (pid < 0)
+        {
             // En caso de error al crear el proceso hijo, mostrar un mensaje de error
             error();
-        } else {
+        }
+        else
+        {
             // En el proceso padre, esperar a que el proceso hijo termine
             waitpid(pid, &status, 0);
             // Si el proceso hijo terminó exitosamente, cambiar el valor de la variable
-            if (EXEC_SUCCESS(status)) {
+            if (EXEC_SUCCESS(status))
+            {
                 comando_ejecutado = 1;
             }
         }
-        
+
         // Si no se ejecutó el comando y no es un comando de listado, mostrar un mensaje de error
-        if (!comando_ejecutado && strcmp(args[0], "ls") != 0) {
+        if (!comando_ejecutado && strcmp(args[0], "ls") != 0)
+        {
             error();
         }
     }
@@ -256,26 +307,37 @@ int ejecutar_comando_externo(char **args) {
 /**
  * Esta función es responsable de la ejecución de comandos internos del shell como "exit", "cd" y "path"
  */
-int ejecutar_comando_interno(char **args) {
-    if (strcmp(args[0], "exit") == 0) {
+int ejecutar_comando_interno(char **args)
+{
+    if (strcmp(args[0], "exit") == 0)
+    {
         exit(0);
-    } else if (strcmp(args[0], "cd") == 0) {
+    }
+    else if (strcmp(args[0], "cd") == 0)
+    {
         // Si no hay argumentos, retorna código de error 0
-        if (args[1] == NULL) {
-            error(); // Mostrar mensaje de error
+        if (args[1] == NULL)
+        {
+            error();  // Mostrar mensaje de error
             return 0; // Retornar código de error 0
         }
         // Si hay exactamente dos argumentos, intentar cambiar de directorio
-        if (args[2] == NULL) {
-            if (chdir(args[1]) != 0) {
-                //error(); // Mostrar mensaje de error
+        if (args[2] == NULL)
+        {
+            if (chdir(args[1]) != 0)
+            {
+                // error(); // Mostrar mensaje de error
                 return 0; // Retornar código de error 0
             }
-        } else {
-            error(); // Mostrar mensaje de error
+        }
+        else
+        {
+            error();  // Mostrar mensaje de error
             return 0; // Retornar código de error 0
         }
-    } else if (strcmp(args[0], "path") == 0) {
+    }
+    else if (strcmp(args[0], "path") == 0)
+    {
         agregar_ruta(args[1]);
     }
 
@@ -284,14 +346,17 @@ int ejecutar_comando_interno(char **args) {
 }
 
 /* Se parsean comandos para operaciones en segundo plano */
-void parsear_comandos(char *comando, char **args, int *segundoplano) {
+void parsear_comandos(char *comando, char **args, int *segundoplano)
+{
     char *token;
     int i = 0;
     token = strtok(comando, " \n");
     // token = strsep(&comando, " \n");                // No funciona bien
-    while (token != NULL && i < MAXIMOS_ARGUMENTOS - 1) {
+    while (token != NULL && i < MAXIMOS_ARGUMENTOS - 1)
+    {
         args[i] = token;
-        if (strcmp(token, "&") == 0) {
+        if (strcmp(token, "&") == 0)
+        {
             *segundoplano = 1;
             args[i] = NULL; // Eliminar el "&" de los argumentos
             break;
@@ -303,27 +368,34 @@ void parsear_comandos(char *comando, char **args, int *segundoplano) {
 }
 
 /* Esta función ejecuta comandos, ya sea en primer plano o en segundo plano, según se especifique. */
-void ejecutar_comando(char **args, int segundoplano) {
+void ejecutar_comando(char **args, int segundoplano)
+{
     pid_t pid;
     int status;
 
     pid = fork();
-    if (pid == 0) {
+    if (pid == 0)
+    {
         execvp(args[0], args);
         error();
-        //exit(1);
-    } else if (pid < 0) {
-              error(); 
-           }
-           else{
-               if(!segundoplano){
-                  waitpid(pid, &status, 0);
-               }
-           }
- }
+        // exit(1);
+    }
+    else if (pid < 0)
+    {
+        error();
+    }
+    else
+    {
+        if (!segundoplano)
+        {
+            waitpid(pid, &status, 0);
+        }
+    }
+}
 
 /*** Función que controla flujo para ejecución de funciones en segundo plano ****/
-void procesoTwo(char *comando) {
+void procesoTwo(char *comando)
+{
     char *args[MAXIMOS_ARGUMENTOS];
     int segundoplano = 0;
 
@@ -331,40 +403,49 @@ void procesoTwo(char *comando) {
     char *token;
     // primer llamado strtok() retorna un apuntador al primer token encontrado antes del delimitador \n
     token = strtok(comando, "\n"); // Usar el salto de línea como delimitador para obtener cadena de comandos sin salto
-    while (token != NULL) {
+    while (token != NULL)
+    {
         parsear_comandos(token, args, &segundoplano); // se obtienen los parámetros
         ejecutar_comando(args, segundoplano);
         token = strtok(NULL, "\n"); // Segundo llamado a strtok() recuerda la cadena que inició a procesar y tokeniza la cadena
         // Si el comando se ejecuta en segundo plano, no esperar a que termine
-        segundoplano = 0;      // Nos aseguramos que en siguiente ciclo no se considere ejecutar en segundo plano
+        segundoplano = 0; // Nos aseguramos que en siguiente ciclo no se considere ejecutar en segundo plano
     }
 }
 
 /* Esta función se encarga de controlar el flujo para la ejecución de comandos en segundo plano y la detección de la salida (exit). */
-void  proceso(char * comando){
-     if (strcmp(comando, "exit\n") == 0) {
+void proceso(char *comando)
+{
+    if (strcmp(comando, "exit\n") == 0)
+    {
         exit(0);
-     }
-     procesoTwo(comando);
+    }
+    procesoTwo(comando);
 }
 
 /** La detección del símbolo & es fundamental para el contexto y la ejecución de comandos en segundo plano */
-int contiene_ampersand(const char *cadena) {
+int contiene_ampersand(const char *cadena)
+{
     return strchr(cadena, '&') != NULL;
 }
 
 /** La función controla el flujo hacia ejecutar comandos internos o externos **/
-void procesoOne(char *comando) {
+void procesoOne(char *comando)
+{
     char *args[MAXIMOS_ARGUMENTOS];
-    
-    if (strcmp(comando, "exit\n") == 0) {
+
+    if (strcmp(comando, "exit\n") == 0)
+    {
         exit(0);
     }
     // Parsear el comando
     parsear_comando(comando, args);
-    if (strcmp(args[0], "exit") == 0 || strcmp(args[0], "cd") == 0 || strcmp(args[0], "path") == 0) {
+    if (strcmp(args[0], "exit") == 0 || strcmp(args[0], "cd") == 0 || strcmp(args[0], "path") == 0)
+    {
         ejecutar_comando_interno(args);
-    } else {
+    }
+    else
+    {
         ejecutar_comando_externo(args);
     }
 }
@@ -379,7 +460,8 @@ void procesoOne(char *comando) {
  *              entrada desde un archivo o conectar la salida de un programa con la
  *              entrada de otro programa.
  */
- void redirigir_salida_entrada_a_archivos(char *comando) {
+void redirigir_salida_entrada_a_archivos(char *comando)
+{
     char *input_file = NULL;
     char *output_file = NULL;
     char *token;
@@ -391,18 +473,24 @@ void procesoOne(char *comando) {
 
     // Dividir el comando en tokens
     token = strtok(comando, " \n");
-    while (token != NULL && i < MAXIMOS_ARGUMENTOS - 1) {
-        if (strcmp(token, "<") == 0) {
+    while (token != NULL && i < MAXIMOS_ARGUMENTOS - 1)
+    {
+        if (strcmp(token, "<") == 0)
+        {
             // Si el token es "<", el siguiente token es el archivo de entrada
             token = strtok(NULL, " \n");
             input_file = token;
             redireccion_entrada = 1;
-        } else if (strcmp(token, ">") == 0) {
+        }
+        else if (strcmp(token, ">") == 0)
+        {
             // Si el token es ">", el siguiente token es el archivo de salida
             token = strtok(NULL, " \n");
             output_file = token;
             redireccion_salida++;
-        } else {
+        }
+        else
+        {
             // Los otros tokens son argumentos del comando
             args[i++] = token;
         }
@@ -411,36 +499,43 @@ void procesoOne(char *comando) {
     args[i] = NULL;
 
     // Verificar si hay múltiples redirecciones de salida
-    if (redireccion_salida > 1) {
+    if (redireccion_salida > 1)
+    {
         error();
         return;
     }
-    if (redireccion_entrada > 1) {
+    if (redireccion_entrada > 1)
+    {
         error();
         return;
     }
     // Crear un proceso hijo
     pid_t pid = fork();
-    if (pid == 0) {
+    if (pid == 0)
+    {
         // En el proceso hijo
-        if (redireccion_entrada) {
+        if (redireccion_entrada)
+        {
             // Si hay redirección de entrada, abrir el archivo de entrada y redirigir stdin
             fd = open(input_file, O_RDONLY);
-            if (fd == -1) {
+            if (fd == -1)
+            {
                 error();
                 return;
             }
-            dup2(fd, STDIN_FILENO);  //El flujo de entrada asociado a fd se redirige a la salida estandar pantalla
+            dup2(fd, STDIN_FILENO); // El flujo de entrada asociado a fd se redirige a la salida estandar pantalla
             close(fd);
         }
-        if (redireccion_salida) {
+        if (redireccion_salida)
+        {
             // Si hay redirección de salida, abrir el archivo de salida y redirigir stdout
             fd = open(output_file, O_CREAT | O_WRONLY | O_TRUNC, 0644);
-            if (fd == -1) {
+            if (fd == -1)
+            {
                 error();
                 return;
             }
-            dup2(fd, STDOUT_FILENO); //Se redirige la salida al archivo asociado fd (ls  > texto.txt)
+            dup2(fd, STDOUT_FILENO); // Se redirige la salida al archivo asociado fd (ls  > texto.txt)
             close(fd);
         }
         // Ejecutar el comando con los argumentos dados
@@ -448,12 +543,15 @@ void procesoOne(char *comando) {
         // Si execvp falla, imprimir un mensaje de error
         error();
         return;
-    } else if (pid < 0) {
+    }
+    else if (pid < 0)
+    {
         // Si fork falla, imprimir un mensaje de error
         error();
-     } else {
+    }
+    else
+    {
         // En el proceso padre, esperar a que el proceso hijo termine
         waitpid(pid, NULL, 0);
     }
 }
-
