@@ -368,4 +368,92 @@ void procesoOne(char *comando) {
         ejecutar_comando_externo(args);
     }
 }
- 
+
+/*
+ * Función: redireccionamiento
+ * Descripción: Permite modificar la entrada, salida o error estándar de un programa
+ *              para conectarlos a diferentes archivos, dispositivos o flujos de datos.
+ *              Se utiliza mediante símbolos como >, < y | en sistemas Unix/Linux.
+ *              Es una técnica poderosa para controlar el flujo de datos entre programas
+ *              y facilitar tareas como guardar la salida en un archivo, proporcionar
+ *              entrada desde un archivo o conectar la salida de un programa con la
+ *              entrada de otro programa.
+ */
+ void redirigir_salida_entrada_a_archivos(char *comando) {
+    char *input_file = NULL;
+    char *output_file = NULL;
+    char *token;
+    char *args[MAXIMOS_ARGUMENTOS];
+    int i = 0;
+    int redireccion_entrada = 0;
+    int redireccion_salida = 0;
+    int fd;
+
+    // Dividir el comando en tokens
+    token = strtok(comando, " \n");
+    while (token != NULL && i < MAXIMOS_ARGUMENTOS - 1) {
+        if (strcmp(token, "<") == 0) {
+            // Si el token es "<", el siguiente token es el archivo de entrada
+            token = strtok(NULL, " \n");
+            input_file = token;
+            redireccion_entrada = 1;
+        } else if (strcmp(token, ">") == 0) {
+            // Si el token es ">", el siguiente token es el archivo de salida
+            token = strtok(NULL, " \n");
+            output_file = token;
+            redireccion_salida++;
+        } else {
+            // Los otros tokens son argumentos del comando
+            args[i++] = token;
+        }
+        token = strtok(NULL, " \n");
+    }
+    args[i] = NULL;
+
+    // Verificar si hay múltiples redirecciones de salida
+    if (redireccion_salida > 1) {
+        error();
+        return;
+    }
+    if (redireccion_entrada > 1) {
+        error();
+        return;
+    }
+    // Crear un proceso hijo
+    pid_t pid = fork();
+    if (pid == 0) {
+        // En el proceso hijo
+        if (redireccion_entrada) {
+            // Si hay redirección de entrada, abrir el archivo de entrada y redirigir stdin
+            fd = open(input_file, O_RDONLY);
+            if (fd == -1) {
+                error();
+                return;
+            }
+            dup2(fd, STDIN_FILENO);  //El flujo de entrada asociado a fd se redirige a la salida estandar pantalla
+            close(fd);
+        }
+        if (redireccion_salida) {
+            // Si hay redirección de salida, abrir el archivo de salida y redirigir stdout
+            fd = open(output_file, O_CREAT | O_WRONLY | O_TRUNC, 0644);
+            if (fd == -1) {
+                error();
+                return;
+            }
+            dup2(fd, STDOUT_FILENO); //Se redirige la salida al archivo asociado fd (ls  > texto.txt)
+            close(fd);
+        }
+        // Ejecutar el comando con los argumentos dados
+        execvp(args[0], args);
+        // Si execvp falla, imprimir un mensaje de error
+        error();
+        return;
+    } else if (pid < 0) {
+        // Si fork falla, imprimir un mensaje de error
+        error();
+     } else {
+        // En el proceso padre, esperar a que el proceso hijo termine
+        waitpid(pid, NULL, 0);
+    }
+}
+
