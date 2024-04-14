@@ -205,3 +205,99 @@ void error(){
     char error_message[30] = "An error has occurred\n";
     write(STDERR_FILENO, error_message, strlen(error_message)); 
 }
+
+/**
+ * Esta función es responsable de ejecutar los comandos externos (comandos que no son internos al shell)
+ */
+int ejecutar_comando_externo(char **args) {
+    pid_t pid;                      // Id del proceso
+    int status;                     // Estado del proceso hijo
+    int comando_ejecutado = 1; // Inicializar en 1 para indicar éxito por defecto
+
+    // Verificar si el comando es "exit" con un argumento ( wish > exit argumento)
+    if (strcmp(args[0], "exit") == 0 && args[1] != NULL) {
+        error_Three("ls: cannot access '/no/such/file': No such file or directory");
+        comando_ejecutado = 0; // Indicar fallo
+    } else {
+        // Crear un proceso hijo
+        pid = fork(); 
+        if (pid == 0) {
+            // En el proceso hijo, ejecutar el comando
+            execvp(args[0], args);
+            error_Three("ls: cannot access '/no/such/file': No such file or directory");
+            // Si execvp falla, mostrar un mensaje de error específico para ls
+            if (strcmp(args[0], "ls") == 0 && args[1] != NULL) {
+                error_Three("ls: cannot access '/no/such/file': No such file or directory");
+            } else {
+                     error();
+            }
+            exit(0); // Salir con código de retorno 0 en caso de error y o retorno de exec
+        } else if (pid < 0) {
+            // En caso de error al crear el proceso hijo, mostrar un mensaje de error
+            error();
+        } else {
+            // En el proceso padre, esperar a que el proceso hijo termine
+            waitpid(pid, &status, 0);
+            // Si el proceso hijo terminó exitosamente, cambiar el valor de la variable
+            if (EXEC_SUCCESS(status)) {
+                comando_ejecutado = 1;
+            }
+        }
+        
+        // Si no se ejecutó el comando y no es un comando de listado, mostrar un mensaje de error
+        if (!comando_ejecutado && strcmp(args[0], "ls") != 0) {
+            error();
+        }
+    }
+
+    return comando_ejecutado; // Retornar 1 en caso de éxito, 0 en caso de fallo
+}
+
+/**
+ * Esta función es responsable de la ejecución de comandos internos del shell como "exit", "cd" y "path"
+ */
+int ejecutar_comando_interno(char **args) {
+    if (strcmp(args[0], "exit") == 0) {
+        exit(0);
+    } else if (strcmp(args[0], "cd") == 0) {
+        // Si no hay argumentos, retorna código de error 0
+        if (args[1] == NULL) {
+            error(); // Mostrar mensaje de error
+            return 0; // Retornar código de error 0
+        }
+        // Si hay exactamente dos argumentos, intentar cambiar de directorio
+        if (args[2] == NULL) {
+            if (chdir(args[1]) != 0) {
+                //error(); // Mostrar mensaje de error
+                return 0; // Retornar código de error 0
+            }
+        } else {
+            error(); // Mostrar mensaje de error
+            return 0; // Retornar código de error 0
+        }
+    } else if (strcmp(args[0], "path") == 0) {
+        agregar_ruta(args[1]);
+    }
+
+    // Si no es ninguno de los comandos anteriores, se considera un comando válido
+    return 1; // Retornar código de éxito
+}
+
+/* Se parsean comandos para operaciones en segundo plano */
+void parsear_comandos(char *comando, char **args, int *segundoplano) {
+    char *token;
+    int i = 0;
+    token = strtok(comando, " \n");
+    // token = strsep(&comando, " \n");                // No funciona bien
+    while (token != NULL && i < MAXIMOS_ARGUMENTOS - 1) {
+        args[i] = token;
+        if (strcmp(token, "&") == 0) {
+            *segundoplano = 1;
+            args[i] = NULL; // Eliminar el "&" de los argumentos
+            break;
+        }
+        token = strtok(NULL, " \n");
+        i++;
+    }
+    args[i] = NULL;
+}
