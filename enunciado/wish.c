@@ -1,12 +1,12 @@
 /*
-    Programa: Ejecución de lote de comandos
-    Autores:  [Leidy Castaño Castaño], [Yuly Yesenia Alvear Romo], [Omar Alberto Torres]
-    Profesor: [Dany Alexandro Munera ]
-    Curso:    [Sistemas operativos y laboratorio]
-    Fecha:    [Abril 10 del 2024]
-*/
-/********************************Insercción de librería standard***********************************/
-// Correcto falta funcionalidad deredireccion
+ * Programa: Ejecución de lote de comandos
+ * Autores:  [Leidy Castaño Castaño], [Yuly Yesenia Alvear Romo], [Omar Alberto Torres]
+ * Profesor: [Dany Alexandro Munera ]
+ * Curso:    [Sistemas operativos y laboratorio]
+ * Fecha:    [Abril 10 del 2024]
+ */
+
+/******************************** Insercción de librería standard ***********************************/
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -15,44 +15,48 @@
 #include <sys/wait.h>
 #include <fcntl.h>
 
-/*********************************Definición de constantes del programa ****************************/
-
+/********************************* Definición de constantes del programa ****************************/
 #define MAXIMA_LONGITUD_PATH 512
 #define MAXIMA_LONGITUD_COMANDO 512
 #define MAXIMOS_ARGUMENTOS 512
 #define MAXIMA_LOGITUD_LINEA 512
 #define MAXIMO_BUFFER 1024
 #define EXEC_SUCCESS(status) ((status) == 0)
-// #define  MAX_INPUT_LENGTH 1024
-/**************************************** Variables globales ***************************************/
+#define MAX_INPUT_LENGTH 1024
 
+/**************************************** Variables globales ***************************************/
 char **rutas;
 int nume_rutas = 0;
+int capacidad_rutas = 256;
 
 /*********************************** Definición prototipos de funciones *****************************/
-
 FILE *getFile(int argc, char *argv[]);
 char **almacenarArgumentos(char *token, char *line_copy);
 void error();
+void error_Three(char *msg);
 void prompt();
 void parsear_comando(char *comando, char **args);
-void ejecutar_comando_externo(char **args);
-void ejecutar_comando_interno(char **args);
+int ejecutar_comando_externo(char **args);
+int ejecutar_comando_interno(char **args);
 void inicializar_rutas();
 void procesoOne(char *comando);
-void procesoTres(int argc, char *argv[]);
+int procesoTres(int argc, char *argv[]);
 void parsear_comandos(char *comando, char **args, int *segundoplano);
 void ejecutar_comando(char **args, int segundoplano);
 void procesoTwo(char *comando);
 void proceso(char *comando);
 int contiene_ampersand(const char *cadena);
 void redirigir_salida_entrada_a_archivos(char *comando);
+void agregar_ruta(const char *nueva_ruta);
+void liberar_rutas();
 
 /***************************************** Función principal ***************************************/
+
 /** La funcion main controla el flujo del program y ciclo del proceso interactivo ******************/
 int main(int argc, char *argv[])
 {
     inicializar_rutas();
+    nume_rutas = sizeof(rutas) / sizeof(rutas[0]);
     char comando[MAXIMA_LONGITUD_COMANDO];
 
     if (argc == 2)
@@ -96,72 +100,108 @@ int main(int argc, char *argv[])
             procesoOne(comando); // Se procesan los comandos internos/externos
         }
     }
-
+    liberar_rutas();
     return 0;
 }
 
-/******************************** Procesos por lotes **********************************************/
-/**La funcion ProcesoTres responsable del proesamiendo del lote de comandos*/
-/**
- * Esta funcion nos generó muchos problemas por que al ejecutar el execv(--) el padre al parecer no podía
- * retomar el flujo normal del programa y el programa se quedaba en un ciclo infinito
- * la solucion fue crear una vía de comunicación entre el proceso padre y el proceso hijo.
- * la tubería creada por popen() basicamente es una area de memoria intermedia en donde el padre y el hijo se escrinben mutuamente
- * el padre escribe el comando a ejecutar el hijo lee el comando y lo ejecuta, para luego escribir
- * en la salida el resultado de su proceso, y el padre lee el resultado y lo manda al flujo de salida
- * que corresponda.
- */
-/**
- *    ./wish comandos.sh
- */
-void procesoTres(int argc, char *argv[])
+/*********************Liberar memoria dinámica******************************/
+void error_Three(char *msg)
 {
-    error();
-    FILE *comandos = fopen(argv[1], "r");
-
-    if (argc != 2)
+    write(STDERR_FILENO, msg, strlen(msg));
+}
+void liberar_rutas()
+{
+    for (int i = 0; i < nume_rutas; i++)
     {
-        error();
-        exit(1);
+        free(rutas[i]);
     }
-    if (comandos == NULL)
-    {
-        error();
-        exit(1);
-    }
+    free(rutas);
+}
 
-    char linea[MAXIMA_LOGITUD_LINEA];
-
-    // Leer cada línea del archivo de comandos
-    while (fgets(linea, sizeof(linea), comandos) != NULL)
-    {
-        // Eliminar el carácter de nueva línea, si está presente
-        linea[strcspn(linea, "\n")] = '\0';
-
-        // Salir del bucle si se encuentra el comando "exit"
-        if (strcmp(linea, "exit") == 0)
-        {
-            break;
-        }
-
-        FILE *fp = popen(linea, "r"); // Ejecutar el comando y abrir una tubería para leer su salida
-        if (fp == NULL)
+/****************Inicializa ruta para busqueda de comandos************/
+void agregar_ruta(const char *nueva_ruta)
+{
+    if (nume_rutas >= capacidad_rutas)
+    { // Verificar si hay espacio suficiente
+        // Duplicar la capacidad del arreglo
+        capacidad_rutas *= 2;
+        rutas = realloc(rutas, capacidad_rutas * sizeof(char *));
+        if (rutas == NULL)
         {
             error();
-            exit(1);
+            return;
         }
+    }
+    // Agregar la nueva ruta
+    rutas[nume_rutas++] = strdup(nueva_ruta);
+}
 
-        char buffer[MAXIMO_BUFFER];
-        // Leer la salida del comando línea por línea y mostrarla en la consola
-        while (fgets(buffer, sizeof(buffer), fp) != NULL)
-        { // En fp viene la salida del hijo
-            fprintf(stdout, "%s", buffer);
-        }
+/**
+ *   La funcion inicializar rutas crea dinámicamente un array predeterminando algunas rutas
+ *   compatibles con Unix y sistema operativo MAC
+ */
+void inicializar_rutas()
+{
+    rutas = malloc(MAXIMA_LONGITUD_PATH * sizeof(char *));
+    rutas[0] = strdup("/bin/");
+    rutas[1] = strdup("/usr/bin/");
+    rutas[2] = strdup("/path/to/date/directory/");
+    rutas[3] = strdup("/path/to/pwd/directory/");
+    rutas[4] = strdup("/boot/");
+    rutas[5] = strdup("/dev/");
+    rutas[6] = strdup("/etc/");
+    rutas[7] = strdup("/home/");
+    rutas[8] = strdup("/lib/");
+}
 
-        pclose(fp); // Cerrar el pipeline después de leer la salida del comando
+/******************************** Procesos por lotes **********************************************/
+/**
+ * La funcion procesoTres es responsable del procesamiento del lote de comandos
+ *    ./wish comandos.sh
+ *    La funcion obtiene la ruta en donde esta el programa shell del sistema operativo
+ *    Se crea un hijo en el que se ejecuta execvp(args[0], args), con esto le estamos diciendo al sistema operativo
+ *    que queremos que ejecute el programa shell pasándole el script con los comandos. Esto es transferimos
+ *    el control a shell para que ejecute todos los comandos del script y ya no tenemos que iterar sobre el script
+ *    para ejecutar los comandos. La magia la ordena el sistema operativo al shell.
+ */
+
+int procesoTres(int argc, char *argv[])
+{
+    FILE *script = fopen(argv[1], "r");
+
+    if (argc != 2 || script == NULL)
+    {
+        error();
+        return 0; // Retorna 1 en caso de error
     }
 
-    // Cerrar el archivo después de procesar todas las líneas del archivo
-    fclose(comandos);
-    exit(0);
+    // Crear un proceso hijo
+    pid_t pid = fork();
+    if (pid < 0)
+    {
+        error();
+        return 0; // Retorna 1 en caso de error
+    }
+    else if (pid == 0)
+    {
+        // Proceso hijo
+        char *comando = strdup("/bin/sh");       // Obtener la ruta del shell
+        char *args[] = {comando, argv[1], NULL}; // Argumentos para ejecutar el script
+        execvp(args[0], args);                   // Ejecutar el script de shell
+        error();                                 // Si execvp falla
+        return 1;
+    }
+    else
+    {
+        // Proceso padre
+        int status;
+        waitpid(pid, &status, 0);
+        if (!EXEC_SUCCESS(status))
+        {
+            error();  // Mostrar mensaje de error si la ejecución falla
+            return 0; // Retorna 1 en caso de error
+        }
+    }
+
+    return 1; // Retorna 1 si todo se ejecutó correctamente
 }
