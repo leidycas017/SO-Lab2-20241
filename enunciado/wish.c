@@ -321,4 +321,51 @@ void ejecutar_comando(char **args, int segundoplano) {
                }
            }
  }
+
+/*** Función que controla flujo para ejecución de funciones en segundo plano ****/
+void procesoTwo(char *comando) {
+    char *args[MAXIMOS_ARGUMENTOS];
+    int segundoplano = 0;
+
+    // Dividir el comando en comandos individuales
+    char *token;
+    // primer llamado strtok() retorna un apuntador al primer token encontrado antes del delimitador \n
+    token = strtok(comando, "\n"); // Usar el salto de línea como delimitador para obtener cadena de comandos sin salto
+    while (token != NULL) {
+        parsear_comandos(token, args, &segundoplano); // se obtienen los parámetros
+        ejecutar_comando(args, segundoplano);
+        token = strtok(NULL, "\n"); // Segundo llamado a strtok() recuerda la cadena que inició a procesar y tokeniza la cadena
+        // Si el comando se ejecuta en segundo plano, no esperar a que termine
+        segundoplano = 0;      // Nos aseguramos que en siguiente ciclo no se considere ejecutar en segundo plano
+    }
+}
+
+/* Esta función se encarga de controlar el flujo para la ejecución de comandos en segundo plano y la detección de la salida (exit). */
+void  proceso(char * comando){
+     if (strcmp(comando, "exit\n") == 0) {
+        exit(0);
+     }
+     procesoTwo(comando);
+}
+
+/** La detección del símbolo & es fundamental para el contexto y la ejecución de comandos en segundo plano */
+int contiene_ampersand(const char *cadena) {
+    return strchr(cadena, '&') != NULL;
+}
+
+/** La función controla el flujo hacia ejecutar comandos internos o externos **/
+void procesoOne(char *comando) {
+    char *args[MAXIMOS_ARGUMENTOS];
+    
+    if (strcmp(comando, "exit\n") == 0) {
+        exit(0);
+    }
+    // Parsear el comando
+    parsear_comando(comando, args);
+    if (strcmp(args[0], "exit") == 0 || strcmp(args[0], "cd") == 0 || strcmp(args[0], "path") == 0) {
+        ejecutar_comando_interno(args);
+    } else {
+        ejecutar_comando_externo(args);
+    }
+}
  
