@@ -301,3 +301,24 @@ void parsear_comandos(char *comando, char **args, int *segundoplano) {
     }
     args[i] = NULL;
 }
+
+/* Esta función ejecuta comandos, ya sea en primer plano o en segundo plano, según se especifique. */
+void ejecutar_comando(char **args, int segundoplano) {
+    pid_t pid;
+    int status;
+
+    pid = fork();
+    if (pid == 0) {
+        execvp(args[0], args);
+        error();
+        //exit(1);
+    } else if (pid < 0) {
+              error(); 
+           }
+           else{
+               if(!segundoplano){
+                  waitpid(pid, &status, 0);
+               }
+           }
+ }
+ 
